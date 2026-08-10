@@ -129,9 +129,8 @@ export default function Home() {
   }
 
   useEffect(() => {
-    const savedCode = window.localStorage.getItem("ee-jkh-home-code") || "";
-    setHomeCode(savedCode);
-    if (savedCode) void loadItems(savedCode); else setLoading(false);
+    window.localStorage.removeItem("ee-jkh-home-code");
+    setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -144,7 +143,6 @@ export default function Home() {
       setLoading(false);
       return;
     }
-    window.localStorage.setItem("ee-jkh-home-code", candidate);
     setCodeError(false);
     setLocked(false);
     setLoading(true);
