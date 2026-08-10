@@ -4,8 +4,8 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
-  "https://qrquyknsdobkupwjkgci.supabase.co",
-  "sb_publishable_LjpMdup9Q14IfebPohsEqg_XniAUbmW",
+  import.meta.env.VITE_SUPABASE_URL || "https://example.supabase.co",
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "missing-publishable-key",
 );
 const HOME_CODE = "030121";
 const HOME_START_DATE = "2026-08-10T00:00:00+08:00";
