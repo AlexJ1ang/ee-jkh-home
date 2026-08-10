@@ -1,6 +1,14 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  "https://qrquyknsdobkupwjkgci.supabase.co",
+  "sb_publishable_LjpMdup9Q14IfebPohsEqg_XniAUbmW",
+);
+const HOME_CODE = "082026";
+const HOME_START_DATE = "2026-08-10T00:00:00+08:00";
 
 type Item = {
   id: number;
@@ -40,7 +48,9 @@ export default function Home() {
   const [homeCode, setHomeCode] = useState("");
   const [locked, setLocked] = useState(true);
   const [codeError, setCodeError] = useState(false);
+  const homeDays = Math.max(1, Math.floor((Date.now() - new Date(HOME_START_DATE).getTime()) / 86400000) + 1);
 
+  /*
   const apiUrl = "/.netlify/functions/items";
 
   function authorizedFetch(url = apiUrl, init: RequestInit = {}, code = homeCode) {
@@ -88,27 +98,65 @@ export default function Home() {
     if (await loadItems(candidate)) window.localStorage.setItem("ee-jkh-home-code", candidate);
   }
 
+  */
+
+  async function loadItems(code = homeCode) {
+    if (code !== HOME_CODE) { setLocked(true); setCodeError(Boolean(code)); setLoading(false); return false; }
+    try {
+      let { data, error } = await supabase.from("items").select("*").order("kind").order("sort_order").order("id");
+      if (error) throw error;
+      if (!data?.length) {
+        const seeded = await supabase.from("items").insert([
+          { title: "奶油色双人沙发", category: "客厅", assignee: "jkh", price: 3200, kind: "task", sort_order: 0 },
+          { title: "遮光窗帘", category: "卧室", assignee: "ee", price: 680, kind: "task", sort_order: 1 },
+          { title: "情侣马克杯", category: "厨房", assignee: "一起", price: 128, kind: "task", sort_order: 2 },
+          { title: "开通新家网络", category: "搬家", assignee: "jkh", price: 399, kind: "task", sort_order: 3 },
+          { title: "挑选第一盆绿植", category: "客厅", assignee: "ee", price: 199, kind: "task", sort_order: 4 },
+          { title: "柔软的四件套", category: "卧室", assignee: "一起", price: 899, kind: "task", sort_order: 5 },
+          { title: "在新家做第一顿饭", category: "生活", assignee: "一起", price: 0, kind: "wish", sort_order: 6 },
+          { title: "养一盆会长大的植物", category: "生活", assignee: "一起", price: 0, kind: "wish", sort_order: 7 },
+          { title: "拍第一张入住合照", category: "纪念", assignee: "一起", price: 0, kind: "wish", sort_order: 8 },
+          { title: "邀请朋友来暖房", category: "纪念", assignee: "一起", price: 0, kind: "wish", sort_order: 9 },
+        ]).select("*");
+        if (seeded.error) throw seeded.error;
+        data = seeded.data;
+      }
+      setItems((data || []).map((row) => ({ ...row, sortOrder: row.sort_order })) as Item[]);
+      setLocked(false); setCodeError(false); return true;
+    } catch (error) { console.error(error); setCodeError(true); }
+    finally { setLoading(false); }
+    return false;
+  }
+
+  useEffect(() => {
+    const savedCode = window.localStorage.getItem("ee-jkh-home-code") || "";
+    setHomeCode(savedCode);
+    if (savedCode) void loadItems(savedCode); else setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function unlockHome(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setLoading(true);
+    const candidate = String(new FormData(event.currentTarget).get("code") || "").trim();
+    setHomeCode(candidate);
+    if (await loadItems(candidate)) window.localStorage.setItem("ee-jkh-home-code", candidate);
+  }
+
   async function toggleItem(item: Item) {
     const completed = item.completed ? 0 : 1;
     setItems((current) =>
       current.map((entry) => (entry.id === item.id ? { ...entry, completed } : entry)),
     );
-    await authorizedFetch(`${apiUrl}?id=${item.id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ completed }),
-    });
+    await supabase.from("items").update({ completed }).eq("id", item.id);
   }
 
   async function addItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     setSaving(true);
-    const response = await authorizedFetch(apiUrl, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-        title: form.get("title"), category: form.get("category"), assignee: form.get("assignee"), price: Number(form.get("price") || 0), kind: tab === "wish" ? "wish" : "task",
-      }),
-    });
-    const data = (await response.json()) as { item?: Item };
-    if (data.item) setItems((current) => [...current, data.item!]);
+    const { data: last } = await supabase.from("items").select("sort_order").order("sort_order", { ascending: false }).limit(1).maybeSingle();
+    const { data: row } = await supabase.from("items").insert({ title: form.get("title"), category: form.get("category"), assignee: form.get("assignee"), price: Number(form.get("price") || 0), kind: tab === "wish" ? "wish" : "task", sort_order: (last?.sort_order || 0) + 1 }).select().single();
+    if (row) setItems((current) => [...current, { ...row, sortOrder: row.sort_order } as Item]);
     setSaving(false);
     setSheetOpen(false);
   }
@@ -116,8 +164,8 @@ export default function Home() {
   async function deleteItem(item: Item) {
     if (!window.confirm(`确定删除“${item.title}”吗？`)) return;
     setItems((current) => current.filter((entry) => entry.id !== item.id));
-    const response = await authorizedFetch(`${apiUrl}?id=${item.id}`, { method: "DELETE" });
-    if (!response.ok) {
+    const { error } = await supabase.from("items").delete().eq("id", item.id);
+    if (error) {
       setItems((current) => [...current, item].sort((a, b) => a.sortOrder - b.sortOrder));
       window.alert("删除失败，请稍后再试。");
     }
@@ -194,7 +242,7 @@ export default function Home() {
 
             <div className="memory-card">
               <div className="memory-icon">♡</div>
-              <div><span>OUR LITTLE HOME</span><strong>新家计划第 48 天</strong><p>小家正在一点点长出来</p></div>
+              <div><span>OUR LITTLE HOME</span><strong>新家计划第 {homeDays} 天</strong><p>小家正在一点点长出来</p></div>
             </div>
           </div>
         )}
@@ -244,7 +292,7 @@ export default function Home() {
             <div className="stat-grid">
               <div><strong>{completed}</strong><span>共同完成</span></div>
               <div><strong>{wishes.filter((item) => item.completed).length}</strong><span>愿望实现</span></div>
-              <div><strong>48</strong><span>一起准备的天</span></div>
+              <div><strong>{homeDays}</strong><span>一起准备的天</span></div>
             </div>
             <div className="ios-list">
               <div><span>⌂</span><p><strong>我们的家</strong><small>ee &amp; jkh 共享空间</small></p><i>›</i></div>
