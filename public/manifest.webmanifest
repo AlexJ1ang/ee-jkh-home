@@ -1,0 +1,9 @@
+{
+  "name": "ee & jkh 的新家",
+  "short_name": "我们的小家",
+  "description": "一起把喜欢的生活，慢慢搬进来。",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5eee7",
+  "theme_color": "#f5eee7"
+}
