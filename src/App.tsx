@@ -7,7 +7,7 @@ const supabase = createClient(
   "https://qrquyknsdobkupwjkgci.supabase.co",
   "sb_publishable_LjpMdup9Q14IfebPohsEqg_XniAUbmW",
 );
-const HOME_CODE = "082026";
+const HOME_CODE = "030121";
 const HOME_START_DATE = "2026-08-10T00:00:00+08:00";
 
 type Item = {
