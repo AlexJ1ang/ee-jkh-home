@@ -136,10 +136,19 @@ export default function Home() {
   }, []);
 
   async function unlockHome(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setLoading(true);
+    event.preventDefault();
     const candidate = String(new FormData(event.currentTarget).get("code") || "").trim();
     setHomeCode(candidate);
-    if (await loadItems(candidate)) window.localStorage.setItem("ee-jkh-home-code", candidate);
+    if (candidate !== HOME_CODE) {
+      setCodeError(true);
+      setLoading(false);
+      return;
+    }
+    window.localStorage.setItem("ee-jkh-home-code", candidate);
+    setCodeError(false);
+    setLocked(false);
+    setLoading(true);
+    void loadItems(candidate);
   }
 
   async function toggleItem(item: Item) {
